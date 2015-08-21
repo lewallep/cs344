@@ -1,0 +1,84 @@
+#!/bin/bash
+#reads two lines from the file and sends them to the standard output.
+
+#This is reading in one line from my file and storing each individual
+#numeral into an array from the individual line.
+
+#this outputs the entire contents of the file to the screen
+cat < test_file.txt
+echo
+#This removes the deliminator from the file and puts the contents to the screen.
+#cut -c1,3,5,7,9 test_file.txt
+
+cat test_file.txt | cut -d $'\t' -f 2
+echo
+#stack Overflow   
+#http://stackoverflow.com/questions/18669756/bash-how-to-extract-data-from-a-column-in-csv-file-and-put-it-in-an-array
+col_arr=( $(cut -d $'\t' -f 2 test_file.txt ) )
+echo
+
+#From Stack Overflow.  It gets the line count of the file I am reading from
+#http://stackoverflow.com/questions/3746947/get-just-the-integer-from-wc-in-bash
+word_count=$( wc -l < test_file.txt )
+echo
+echo "the word count variable is" $word_count
+
+#reads in one line from the file
+IFS=$'\t' read -r -a numArray < "test_file.txt"
+echo ${numArray[*]}	#outputs the contents of the entire array witha a single space between each element.
+echo ${numArray[0]} #outputs the contents of one element in the array
+echo
+
+#declaring a test array to check for it's scope when i use it in a while loop.
+declare -a myArray
+declare -a sorted_col
+
+#This loop reads each line into my array and then I echo out
+#each indivudal element of the arrays.
+y=0
+while (("$y" < 5 ))
+do
+	while IFS=$'\t' read -r -a myArray
+	do
+		echo "Col is" $y "and the value is" ${myArray[$y]}
+	done < "test_file.txt" 
+	echo
+((y+=1))
+done 
+echo "This is my num Array line 1" ${numArray[*]}
+echo 
+
+sorted_col=( $(
+	for i in ${col_arr[*]}
+	do
+		echo "$i"
+	done | sort) )
+
+echo ${col_arr[*]}
+echo ${sorted_col[*]}
+
+#This line is getting the count of the length of the array.  
+arr_count=${#sorted_col[*]}
+echo "This is the count of my array," $arr_count
+
+if [[ $1 = $0 ]]
+then
+	echo "The elements in the first array are equal"
+else
+	echo "The elements are not equal."
+fi
+
+if [[ ${1:0:1} == "-" && ${1:1:2} == "r" ]]; 
+then 
+	echo "matches"; 
+else 
+	echo "does not match"; 
+fi
+
+#What I think this is doing is I am referencing the first command line argument.
+#Then the second numeral is the start of where I want to compare the array
+#The third numeral is how many characters I want to traverse in my comparison.
+echo ${1:0:1}
+echo ${1:1:1}
+
+exit 0

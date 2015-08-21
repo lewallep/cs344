@@ -1,0 +1,200 @@
+#!/bin/bash
+#Philip Lewallen
+#CS344-400
+#Assignment 1
+
+#Declaring global variables to use with the functions.
+declare r_av  			#Row average
+declare r_med 			#Row median
+declare c_av 			#Column Average
+declare c_med 			#Column median
+declare col				#The current column I am working with.
+declare col_count 		#A counter for the number of columns.
+declare temp
+
+rounding_string=.49		#A string for comparing if I need to round up or down an expression.
+y=0						#counter variable for loops.
+
+row_average () {
+	sum=0	#Declaring a local sum variable
+	i=0		#Declaring a local counter variable
+
+	#I get the length of the array and use it as a counter for the while loop to
+	#iterate through the array and calculate the sum and then the average of the row.
+	arrLen=${#rowArray[*]}
+	while [[ $i -lt $arrLen ]]
+	do
+		((sum+=${rowArray[$i]}))
+		((i+=1))
+	done
+
+	if [[ arrLen -ge 0 ]]
+	then
+		#Calculate the remainder from the average.
+		remainder=$(( $sum % $arrLen ))
+
+		#http://askubuntu.com/questions/229446/how-to-pass-results-of-bc-to-a-variable
+		rounding=2
+		rounded=$(bc <<< "scale=$rounding;$sum/$arrLen")
+
+		#If the remainder is greater than or equal to half of the array length
+		#round up the average by one.  If not we do nothing.
+		#http://unix.stackexchange.com/questions/24721/how-to-compare-to-floating-point-number-in-a-shell-script
+		if [[ ${rounding_string##*.} < ${rounded##*.} ]]
+		then
+			r_av=$((sum / arrLen))
+			((r_av+=1))
+		else
+			r_av=$((sum / arrLen))
+		fi
+	fi
+}
+
+row_median () {
+	mid_of_arr=$((${#rowArray[*]} / 2))
+
+	#Here the array is being sorted.  
+	#This is from stack overflow.  I managed to lose the page where I found this one.
+	sorted_row=( $(
+	for i in ${rowArray[*]}
+	do
+		echo "$i"
+	done | sort) )
+
+	r_med=${sorted_row[mid_of_arr]}
+}
+
+col_average () {
+	local_col=$col
+	filename=$temp
+	#stack Overflow   
+	#http://stackoverflow.com/questions/18669756/bash-how-to-extract-data-from-a-column-in-csv-file-and-put-it-in-an-array
+	col_arr=( $(cut -d $'\t' -f $local_col $filename ) )
+	line_count=$( wc -l < $filename )
+
+	sum=0			#Declaring a local sum variable
+	i=0				#Declaring a local counter variable
+	remainder=0		#Remainder to determine if I need to round up or donw.
+	#I get the length of the array and use it as a counter for the while loop to
+	#iterate through the array and calculate the sum and then the average of the row.
+	arrLen=${#col_arr[*]}
+	while [[ $i -lt $arrLen ]]
+	do
+		((sum+=${col_arr[$i]}))
+		((i+=1))
+	done
+
+	if [[ arrLen -ne 0 ]]
+	then
+		#http://askubuntu.com/questions/229446/how-to-pass-results-of-bc-to-a-variable
+		rounding=2
+		rounded=$(bc <<< "scale=$rounding;$sum/$arrLen")
+
+		#If the remainder is greater than or equal to half of the array length
+		#round up the average by one.  If not we do nothing.
+		if [[ ${rounding_string##*.} < ${rounded##*.} ]]
+		then
+			c_av=$((sum / arrLen))
+			((c_av+=1))
+		else
+			c_av=$((sum / arrLen))
+		fi
+	fi
+}
+
+col_median () {
+	local_col=$col
+	filename=$temp
+
+	#stack Overflow   
+	#http://stackoverflow.com/questions/18669756/bash-how-to-extract-data-from-a-column-in-csv-file-and-put-it-in-an-array
+	col_arr=( $(cut -d $'\t' -f $local_col $filename ) )
+
+	#Finds the middle of the array
+	mid_of_arr=$((${#col_arr[*]} / 2))
+
+	#Here the array is being sorted.  
+	#This is from stack overflow.  I managed to lose the page where I found this one.
+	sorted_col=( $(
+	for i in ${col_arr[*]}
+	do
+		echo "$i"
+	done | sort) )
+
+	c_med=${sorted_col[mid_of_arr]}
+}
+
+##Start of my main script
+
+#http://kb.mit.edu/confluence/pages/viewpage.action?pageId=3907156
+trap '{ echo "Hey, you pressed Ctrl-C. Time to quit." ; exit 1; }' INT 
+trap '{ echo "Hey, the system has hung up." ; exit 1; }' SIGHUP	
+trap '{ echo "Hey, the sytems has TERMINATED YOU!!!! ; exit 1; }' SIGTERM
+
+#Checking the amount of arguments on the command line.
+if [ "$#" -ne 2 ];
+then 
+	#If the amount of arguments is not correct I output the proper useage syntax
+	echo "Useage: stats{-rows|-cols} [file]"
+else
+	filetest=$2
+
+	if [ -e "$filetest" ]
+	then
+		#I check to see if the user has entered if they want evaluate the rows of the file
+		if [[ ${1:0:1} == "-" && ${1:1:1} == "r" ]];
+			then
+				temp=$2		#I am transferring the command line variable to a declared or global variable
+				echo "Average   Medians"
+
+				#Reading in each line from the file.
+				#This was also from Stack overflow but I did not keep the link.
+				while IFS=$'\t' read -r -a rowArray
+				do
+					row_average rowArray
+					row_median rowArray
+					echo $r_av "       " $r_med
+					((y+=1))
+				done < $temp
+
+		#Check to see if the user wants to evluate the columns of the file
+		elif [[ ${1:0:1} == "-" && ${1:1:1} == "c" ]]
+			then
+				temp=$2						#I am transferring the filename from the command line variables
+				z=1 						#Line interation counter.
+				declare col=1 				#Initializing the column counter.
+				col_index=0					#Index of the column array
+				declare -a col_medians		#Container of all of the column medians
+				declare -a col_averages		#Container for the column averages
+
+				#From Stack Overflow.  It gets the line count of the file I am reading from
+				#http://stackoverflow.com/questions/3746947/get-just-the-integer-from-wc-in-bash
+				col_count=$( wc -L < $2 )
+				col_count=$(($col_count / 6))
+
+				while [[ $z -le $col_count ]]
+				do
+					col_average col temp
+					col_average[$col_index]=$c_av
+
+					col_median col temp
+					col_medians[$col_index]=$c_med
+					
+					((col_index+=1))
+					((col+=1))
+					((z+=1))
+				done
+
+				#Output all of the averages and medians.
+				echo "Averages:" 
+				echo ${col_average[*]} 			
+				echo "Medians:"
+				echo ${col_medians[*]} 
+		else
+			echo "Useage: stats{-rows|-cols} [file]"
+		fi
+	else
+		echo "stats: cannot read " $filetest
+		exit 1
+	fi
+fi
